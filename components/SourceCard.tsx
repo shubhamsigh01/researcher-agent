@@ -11,7 +11,23 @@ interface SourceCardProps {
   index: number;
 }
 
+function getCredibility(url: string) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.endsWith('.edu') || hostname.endsWith('.gov') || hostname.includes('wikipedia.org') || hostname.includes('nature.com') || hostname.includes('ncbi.nlm.nih.gov') || hostname.includes('arxiv.org')) {
+      return { level: 'High Trust', color: 'text-green-400 bg-green-500/10 border-green-500/20' };
+    }
+    if (hostname.endsWith('.org') || hostname.includes('github.com') || hostname.includes('medium.com') || hostname.includes('forbes.com') || hostname.includes('bloomberg.com') || hostname.includes('reuters.com')) {
+      return { level: 'Medium Trust', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' };
+    }
+    return { level: 'Standard', color: 'text-white/60 bg-white/5 border-white/10' };
+  } catch {
+    return { level: 'Standard', color: 'text-white/60 bg-white/5 border-white/10' };
+  }
+}
+
 export function SourceCard({ title, summary, url, date, relevance, index }: SourceCardProps) {
+  const credibility = getCredibility(url);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -49,7 +65,10 @@ export function SourceCard({ title, summary, url, date, relevance, index }: Sour
 
           <p className="text-sm text-white/60 mb-4 line-clamp-3">{summary}</p>
 
-          <div className="flex items-center gap-4 text-xs text-white/40">
+          <div className="flex items-center gap-4 text-xs text-white/40 flex-wrap">
+            <div className={`px-2 py-0.5 rounded-full border ${credibility.color} flex items-center gap-1 font-medium`}>
+              <span>{credibility.level}</span>
+            </div>
             <div className="flex items-center gap-1">
               <Calendar size={14} />
               <span>{date}</span>

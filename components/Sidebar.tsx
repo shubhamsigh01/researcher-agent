@@ -5,6 +5,9 @@ import { History, Trash2, Clock, X } from 'lucide-react';
 interface ResearchHistoryItem {
   id: string;
   query: string;
+  goal: string;
+  depth: string;
+  role: string;
   timestamp: Date;
 }
 
@@ -98,6 +101,11 @@ export function Sidebar({ history, onSelectHistory, onClearHistory, isOpen, onCl
                         <p className="text-white font-medium mb-2 line-clamp-2 group-hover:text-cyan-300 transition-colors">
                           {item.query}
                         </p>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400">{item.goal}</span>
+                          <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">{item.depth}</span>
+                          <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">{item.role}</span>
+                        </div>
                         <div className="flex items-center gap-2 text-xs text-white/40">
                           <Clock size={12} />
                           <span>{item.timestamp.toLocaleDateString()}</span>

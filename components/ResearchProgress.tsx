@@ -7,10 +7,10 @@ interface ResearchProgressProps {
 }
 
 const STAGES = [
-  { icon: Network, label: 'Formulating Vectors', color: 'from-blue-500 to-cyan-400' },
-  { icon: DatabaseZap, label: 'Executing Grounding', color: 'from-cyan-500 to-blue-400' },
-  { icon: FileText, label: 'Parsing Context', color: 'from-blue-400 to-cyan-500' },
-  { icon: Blocks, label: 'Synthesizing Output', color: 'from-cyan-400 to-blue-500' }
+  { icon: Network, label: 'Initializing Agent', color: 'from-blue-500 to-cyan-400' },
+  { icon: DatabaseZap, label: 'Searching Sources', color: 'from-cyan-500 to-blue-400' },
+  { icon: FileText, label: 'Reading Content', color: 'from-blue-400 to-cyan-500' },
+  { icon: Blocks, label: 'Synthesizing Answer', color: 'from-cyan-400 to-blue-500' }
 ];
 
 export function ResearchProgress({ currentStage }: ResearchProgressProps) {

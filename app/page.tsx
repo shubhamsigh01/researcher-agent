@@ -1,8 +1,8 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, AlertCircle } from 'lucide-react';
-import { ResearchInput } from '@/components/ResearchInput';
+import { ResearchInput, ResearchOptions } from '@/components/ResearchInput';
 import { ResearchProgress } from '@/components/ResearchProgress';
 import { ResearchResults } from '@/components/ResearchResults';
 import { Sidebar } from '@/components/Sidebar';
@@ -12,6 +12,10 @@ import { Logo } from '@/components/Logo';
 interface ResearchHistoryItem {
   id: string;
   query: string;
+  goal: string;
+  depth: string;
+  role: string;
+  mode: 'chat' | 'research';
   timestamp: Date;
 }
 
@@ -25,16 +29,46 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'chat' | 'research'>('research');
 
-  const handleSearch = async (query: string) => {
-    setCurrentQuery(query);
+  // Load history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('research_history');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        // Revive dates
+        const revived = parsed.map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        }));
+        setHistory(revived);
+      } catch (e) {
+        console.error("Failed to parse history", e);
+      }
+    }
+  }, []);
+
+  // Save history to localStorage whenever it changes
+  useEffect(() => {
+    if (history.length > 0) {
+      localStorage.setItem('research_history', JSON.stringify(history));
+    }
+  }, [history]);
+
+  const handleSearch = async (options: ResearchOptions) => {
+    setCurrentQuery(options.query);
     setAppState('searching');
     setCurrentStage(1);
     setError(null);
 
     setHistory((prev) => [{
       id: Date.now().toString(),
-      query,
+      query: options.query,
+      goal: options.goal,
+      depth: options.depth,
+      role: options.role,
+      mode,
       timestamp: new Date(),
     }, ...prev]);
 
@@ -46,7 +80,13 @@ export default function App() {
       const res = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: query }),
+        body: JSON.stringify({ 
+          prompt: options.query,
+          goal: options.goal,
+          depth: options.depth,
+          role: options.role,
+          mode
+        }),
       });
 
       clearInterval(stageInterval);
@@ -66,7 +106,7 @@ export default function App() {
       }));
 
       setResults({
-        query: payload.title || query,
+        query: payload.title || options.query,
         summary: payload.summary || "Analysis finalized.",
         sources: adaptedSources,
         sections: payload.sections,
@@ -107,7 +147,7 @@ export default function App() {
 
       <Sidebar
         history={history}
-        onSelectHistory={(item) => handleSearch(item.query)}
+        onSelectHistory={(item) => handleSearch({ query: item.query, goal: item.goal, depth: item.depth, role: item.role })}
         onClearHistory={() => setHistory([])}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -198,6 +238,26 @@ export default function App() {
                   Define your objective
                 </motion.h2>
                 
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className="flex justify-center mb-6"
+                >
+                  <div className="bg-white/5 p-1 rounded-xl flex items-center border border-white/10 backdrop-blur-md">
+                    <button 
+                      onClick={() => setMode('chat')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'chat' ? 'bg-white/20 text-white shadow-sm' : 'text-white/50 hover:text-white'}`}>
+                      Chat Mode
+                    </button>
+                    <button 
+                      onClick={() => setMode('research')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'research' ? 'bg-cyan-500/20 text-cyan-400 shadow-sm' : 'text-white/50 hover:text-white'}`}>
+                      Deep Research
+                    </button>
+                  </div>
+                </motion.div>
+                
                 <motion.p
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -242,7 +302,17 @@ export default function App() {
                 exit={{ opacity: 0 }}
                 className="w-full"
               >
-                <ResearchResults {...results} />
+                <ResearchResults 
+                  {...results} 
+                  onFollowUp={(followUpQuery) => {
+                    handleSearch({
+                      query: followUpQuery,
+                      goal: 'Research',
+                      depth: 'Detailed',
+                      role: 'Analyst'
+                    });
+                  }}
+                />
               </motion.div>
             )}
           </AnimatePresence>
