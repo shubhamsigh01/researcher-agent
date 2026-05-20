@@ -4,16 +4,12 @@ import { GoogleGenAI } from '@google/genai';
 export const maxDuration = 60;
 
 // Models to try in order - cycling finds one that works with current quota
-// Updated to include latest Gemini 2.5 and 3.x series
+// Only includes verified, real Gemini model IDs
 const MODEL_CANDIDATES = [
-  'gemini-3.1-flash-lite',
-  'gemini-3.1-flash-live-preview',
-  'gemini-3-flash-preview',
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'deep-research-preview-04-2026',
+  'gemini-2.0-flash',       // Most reliable, generous free-tier quota
+  'gemini-2.0-flash-lite',  // Lightweight fallback, fast and cheap
+  'gemini-2.5-flash',       // More capable but tighter rate limits
+  'gemini-1.5-flash',       // Stable fallback
 ];
 
 let ai: GoogleGenAI;
@@ -90,7 +86,8 @@ export async function POST(req: Request) {
 
     const client = getAI();
 
-    for (const modelId of MODEL_CANDIDATES) {
+    for (let i = 0; i < MODEL_CANDIDATES.length; i++) {
+      const modelId = MODEL_CANDIDATES[i];
       try {
         console.log(`Trying model: ${modelId}`);
         const response = await client.models.generateContent({
@@ -126,6 +123,10 @@ export async function POST(req: Request) {
         // Only continue cycling on 404 (not found), 429 (quota), or 503 (overloaded)
         if (status !== 404 && status !== 429 && status !== 503) {
           break;
+        }
+        // Small delay before trying next model to avoid rapid-fire rate limiting
+        if (i < MODEL_CANDIDATES.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
     }
