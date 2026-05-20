@@ -83,27 +83,60 @@ export async function POST(req: Request) {
     let responseText = "";
     let sources: any[] = [];
     let lastError: any = null;
+    let successModel = "";
 
     const client = getAI();
 
+    // Phase 1: Try plain generation WITHOUT googleSearch (uses much less quota)
     for (let i = 0; i < MODEL_CANDIDATES.length; i++) {
       const modelId = MODEL_CANDIDATES[i];
       try {
-        console.log(`Trying model: ${modelId}`);
+        console.log(`[Phase 1 - no grounding] Trying model: ${modelId}`);
         const response = await client.models.generateContent({
           model: modelId,
-          contents: `Research this topic: ${query}`,
+          contents: `Research this topic thoroughly using your training knowledge: ${query}`,
           config: {
             systemInstruction,
-            tools: [{ googleSearch: {} }] as any,
             temperature: 0.2,
           },
         });
 
         responseText = (response.text || "").replace(/```json\n?|```\n?/g, '').trim();
 
-        // Extract grounding sources
-        const metadata = response.candidates?.[0]?.groundingMetadata;
+        if (responseText) {
+          successModel = modelId;
+          console.log(`Phase 1 success with model: ${modelId}`);
+          break;
+        }
+      } catch (err: any) {
+        const status = err.status || (err.error?.code) || 0;
+        const message = err.message || JSON.stringify(err);
+        console.error(`Model ${modelId} failed (Status: ${status}):`, message.substring(0, 200));
+
+        lastError = err;
+        if (status !== 404 && status !== 429 && status !== 503) {
+          break;
+        }
+        if (i < MODEL_CANDIDATES.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
+
+    // Phase 2: If we found a working model, try to get grounded sources (optional, best-effort)
+    if (successModel) {
+      try {
+        console.log(`[Phase 2 - grounding] Trying googleSearch with: ${successModel}`);
+        const groundedResponse = await client.models.generateContent({
+          model: successModel,
+          contents: `Find the most relevant and recent web sources about: ${query}. Return a brief summary.`,
+          config: {
+            tools: [{ googleSearch: {} }] as any,
+            temperature: 0.1,
+          },
+        });
+
+        const metadata = groundedResponse.candidates?.[0]?.groundingMetadata;
         sources = ((metadata as any)?.groundingChunks || [])
           .filter((chunk: any) => chunk.web)
           .map((chunk: any) => {
@@ -111,31 +144,22 @@ export async function POST(req: Request) {
             try { domain = new URL(chunk.web.uri).hostname; } catch { domain = chunk.web.uri; }
             return { title: chunk.web.title, url: chunk.web.uri, domain, description: "" };
           });
-
-        console.log(`Success with model: ${modelId}`);
-        break; // Stop cycling once we have a successful response
+        console.log(`Phase 2 grounding success: ${sources.length} sources found`);
       } catch (err: any) {
-        const status = err.status || (err.error?.code) || 0;
-        const message = err.message || JSON.stringify(err);
-        console.error(`Model ${modelId} failed (Status: ${status}):`, message.substring(0, 200));
-
-        lastError = err;
-        // Only continue cycling on 404 (not found), 429 (quota), or 503 (overloaded)
-        if (status !== 404 && status !== 429 && status !== 503) {
-          break;
-        }
-        // Small delay before trying next model to avoid rapid-fire rate limiting
-        if (i < MODEL_CANDIDATES.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        // Grounding failed (likely quota) - continue without sources, this is non-fatal
+        console.warn("Grounding failed (non-fatal), continuing without web sources:", err.message?.substring(0, 100));
       }
     }
 
     if (!responseText) {
+      const errorMessage = lastError?.message || 'All models exhausted';
+      const is429 = errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate');
       return NextResponse.json({
         error: 'AI Generation Failed',
-        details: lastError?.message?.substring(0, 500) || 'All models exhausted',
-        hint: 'Your API key may have hit its free-tier quota. Please generate a new key at https://aistudio.google.com/app/apikey'
+        details: is429
+          ? 'API rate limit reached. Free-tier quota resets every minute — please wait a moment and try again.'
+          : errorMessage.substring(0, 500),
+        hint: 'If this persists, generate a new API key at https://aistudio.google.com/app/apikey'
       }, { status: 429 });
     }
 

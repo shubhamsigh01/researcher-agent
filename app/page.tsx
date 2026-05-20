@@ -93,7 +93,7 @@ export default function App() {
       setCurrentStage(4);
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "The research request failed to resolve.");
+      if (!res.ok) throw new Error(data.details || data.error || "The research request failed to resolve.");
       
       const payload = data.research;
       
