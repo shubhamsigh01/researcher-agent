@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   try {
     // We'll use the standard SDK as primary for better compatibility
     const body = await req.json();
-    
+
     const query = [
       body.query,
       body.question,
@@ -40,21 +40,21 @@ export async function POST(req: Request) {
 
     const { goal = 'Research', depth = 'Detailed', role = 'Analyst', mode = 'research' } = body;
 
-    const rolePrompt = 
+    const rolePrompt =
       role === 'Teacher' ? 'You are an expert teacher who explains complex concepts simply and clearly, focusing on core understanding.' :
-      role === 'Advisor' ? 'You are a strategic advisor providing actionable insights, practical steps, and strategic direction.' :
-      'You are an expert analytical research assistant who conducts thorough data-driven research and synthesizes findings.';
+        role === 'Advisor' ? 'You are a strategic advisor providing actionable insights, practical steps, and strategic direction.' :
+          'You are an expert analytical research assistant who conducts thorough data-driven research and synthesizes findings.';
 
-    const depthPrompt = 
+    const depthPrompt =
       depth === 'Basic' ? 'Keep the analysis high-level, easy to digest, and brief.' :
-      depth === 'Expert' ? 'Provide highly technical, deep, and nuanced analysis suitable for domain experts.' :
-      'Provide a balanced, detailed, and comprehensive report.';
+        depth === 'Expert' ? 'Provide highly technical, deep, and nuanced analysis suitable for domain experts.' :
+          'Provide a balanced, detailed, and comprehensive report.';
 
     const goalPrompt =
       goal === 'Learn' ? 'Your goal is to help the user learn and understand the topic from first principles.' :
-      goal === 'Invest' ? 'Your goal is to analyze market trends, risks, and potential opportunities for investment.' :
-      goal === 'Build' ? 'Your goal is to provide step-by-step guidance, tools, and technical architectures for building.' :
-      'Your goal is to provide an objective, well-researched synthesis of the topic.';
+        goal === 'Invest' ? 'Your goal is to analyze market trends, risks, and potential opportunities for investment.' :
+          goal === 'Build' ? 'Your goal is to provide step-by-step guidance, tools, and technical architectures for building.' :
+            'Your goal is to provide an objective, well-researched synthesis of the topic.';
 
     const systemInstruction = `${rolePrompt}
     ${goalPrompt}
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     CRITICAL: You must escape any double quotes inside your text content using a backslash (\\") to ensure valid JSON. Do not use unescaped double quotes inside string values.`;
 
     console.log("Starting AI generation for query:", query);
-    
+
     let responseText = "";
     let sources: any[] = [];
     let lastError: any = null;
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         const status = err.status || (err.error?.code) || 0;
         const message = err.message || JSON.stringify(err);
         console.error(`Model ${modelId} failed (Status: ${status}):`, message.substring(0, 200));
-        
+
         lastError = err;
         // Only continue cycling on 404 (not found), 429 (quota), or 503 (overloaded)
         if (status !== 404 && status !== 429 && status !== 503) {
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
 
 
     let reportData;
-    
+
     try {
       reportData = JSON.parse(responseText);
     } catch {
@@ -160,7 +160,7 @@ export async function POST(req: Request) {
     // Use sources from either SDK path
     const finalSources = sources;
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       research: {
         title: `Research: ${query}`,
         summary: reportData.sections?.[0]?.content?.substring(0, 300) + '...' || "No overview available.",
@@ -180,9 +180,9 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Research API Error:", error);
-    return NextResponse.json({ 
-      error: 'Internal Server Error', 
-      details: error.message 
+    return NextResponse.json({
+      error: 'Internal Server Error',
+      details: error.message
     }, { status: 500 });
   }
 }
